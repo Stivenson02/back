@@ -2,6 +2,7 @@
 
 namespace App\Models\Administration;
 
+
 use App\Administrator;
 use Illuminate\Database\Eloquent\Model;
 
