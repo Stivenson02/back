@@ -3,24 +3,28 @@
 namespace App\Http\Controllers;
 
 use App\Administrator;
+use App\Models\Administration\Parameters;
 use App\Models\Administration\StakeholderDocument;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
 use Intervention\Image\ImageManager;
 
 class UserController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     *
-     * @return \Illuminate\Http\Response
-     */
+
     public function index()
     {
         $auth= Auth::User();
         $stakeolder=$auth->stakeholder()->first();
+        $data= array_search(3,json_decode($stakeolder->type_stakeholder_id)) ;
+        if (!$data){
+            return response()->json([
+                "message"=> "El usuario no es de tipo proveedor"
+            ], 500);
+        }
         $auth['business_name']=$stakeolder->business_name;
         $auth['business']=$stakeolder->business;
         $auth['phone_contact']=$stakeolder->phone_contact;
@@ -37,136 +41,6 @@ class UserController extends Controller
         return $auth;
     }
 
-    /**
-     * Show the form for creating a new resource.
-     *
-     * @return \Illuminate\Http\Response
-     */
-    public function getAvatar()
-    {
-
-    }
-
-    /**
-     * Store a newly created resource in storage.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\Response
-     */
-    public function documentImages(Request $request)
-    {
-        $filenameWithExtension = $request->file("file")->getClientOriginalName();
-        $extention = pathinfo($filenameWithExtension, PATHINFO_EXTENSION);
-        if ($extention == 'png' ||$extention == 'PNG' ||$extention == 'jpg' || $extention == 'JPG' ||$extention == 'jpeg' ||$extention == 'JPEG' ){
-            $file = $request->file('file');
-            $filename = sha1(time()).".{$extention}";
-
-            $manager = new ImageManager(array('driver' => 'imagick'));
-            $image = $manager->make($file)->resize(300, 200);
-
-            Storage::disk('s3')->put('supplier/profile/'.$request->location.'/'.$filename, $file);
-            Storage::disk('s3')->put('supplier/profile/'.$request->location.'/300X200_'.$filename, $image);
-
-            $auth= Auth::User();
-            $stackeolder_document_validate=StakeholderDocument::where('stakeholder_id',$auth->stakeholder_id)
-                ->where('document_id',(int)$request->type_document_id);
-
-            if ($stackeolder_document_validate->exists()){
-                $stackeolder_document= $stackeolder_document_validate->first();
-                Storage::disk('s3')->delete($stackeolder_document->path);
-                Storage::disk('s3')->delete('supplier/profile/'.$request->location.'/'.$stackeolder_document->name);
-            }else{
-                $stackeolder_document= new StakeholderDocument();
-            }
-            $stackeolder_document->stakeholder_id=$auth->stakeholder_id;
-            $stackeolder_document->document_id=(int)$request->type_document_id;
-            $stackeolder_document->path='supplier/profile/'.$request->location.'/300X200_'.$filename;
-            $stackeolder_document->name=$filename;
-            $stackeolder_document->status_document=1;
-            $stackeolder_document->save();
-
-            return response()->json([
-                'mesagge'=>'Imagen Almacenada',
-                'code'=>200
-            ]);
-        }else{
-            return response()->json([
-                'mesagge'=>'La imagen no tiene un formato valido',
-                'code'=>500
-            ]);
-        }
-
-    }
-
-    public function documentFiles(Request $request)
-    {
-        $filenameWithExtension = $request->file("file")->getClientOriginalName();
-        $extention = pathinfo($filenameWithExtension, PATHINFO_EXTENSION);
-        if ($extention == 'doc' || $extention == 'DOC' || $extention == 'docx' || $extention == 'DOCX' || $extention == 'pdf' || $extention == 'PDF' || $extention == 'png' || $extention == 'PNG' || $extention == 'jpg' || $extention == 'JPG' || $extention == 'jpeg' || $extention == 'JPEG' ){
-            $file = $request->file('file');
-            $filename = sha1(time()).".{$extention}";
-
-            Storage::disk('s3')->put('supplier/documents/'.$request->location.'/'.$filename, $file);
-
-            $auth= Auth::User();
-            $stackeolder_document_validate=StakeholderDocument::where('stakeholder_id',$auth->stakeholder_id)
-                ->where('document_id',(int)$request->type_document_id);
-
-            if ($stackeolder_document_validate->exists()){
-                $stackeolder_document= $stackeolder_document_validate->first();
-                Storage::disk('s3')->delete($stackeolder_document->path);
-            }else{
-                $stackeolder_document= new StakeholderDocument();
-            }
-            $stackeolder_document->stakeholder_id=$auth->stakeholder_id;
-            $stackeolder_document->document_id=(int)$request->type_document_id;
-            $stackeolder_document->path='supplier/documents/'.$request->location.'/'.$filename;
-            $stackeolder_document->name=$filename;
-            $stackeolder_document->status_document=0;
-            $stackeolder_document->save();
-
-            return response()->json([
-                'mesagge'=>'Documento Almacenado',
-                'code'=>200
-            ]);
-        }else{
-            return response()->json([
-                'mesagge'=>'El documento no tiene un formato valido',
-                'code'=>500
-            ]);
-        }
-
-    }
-
-    /**
-     * Display the specified resource.
-     *
-     * @param  \App\Administrator  $administrator
-     * @return \Illuminate\Http\Response
-     */
-    public function show(Administrator $administrator)
-    {
-        //
-    }
-
-    /**
-     * Show the form for editing the specified resource.
-     *
-     * @param  \App\Administrator  $administrator
-     * @return \Illuminate\Http\Response
-     */
-    public function edit(Administrator $administrator)
-    {
-        //
-    }
-
-    /**
-     * Update the specified resource in storage.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  \App\Administrator  $administrator
-     * @return \Illuminate\Http\Response
-     */
     public function update(Request $request, Administrator $administrator)
     {
         $admin =$administrator->find($request->id);
@@ -189,13 +63,251 @@ class UserController extends Controller
     }
 
     /**
-     * Remove the specified resource from storage.
-     *
-     * @param  \App\Administrator  $administrator
-     * @return \Illuminate\Http\Response
+     * @upload Files are send to s3
+     * @update Data update in database
      */
-    public function destroy(Administrator $administrator)
+
+    public function uploadAvatar(Request $request)
     {
-        //
+        $data = explode(',', $request->base64);
+        $content = base64_decode($data[1]);
+
+        $location = 'avatar';
+        $request->type_document_id=1;
+        $type_image=true;
+
+        return $this->loadFileData($request, $content, $location, $type_image);
+    }
+
+    public function uploadLogo(Request $request)
+    {
+        $data = explode(',', $request->base64);
+        $content = base64_decode($data[1]);
+
+        $location = 'logo';
+        $request->type_document_id=2;
+        $type_image=true;
+
+        return $this->loadFileData($request, $content, $location, $type_image);
+    }
+
+    public function uploadIdentity(Request $request)
+    {
+        $data = explode(',', $request->base64);
+        $content = base64_decode($data[1]);
+
+        $location = 'identity';
+        $request->type_document_id=4;
+        $type_image=false;
+
+        return $this->loadFileData($request, $content, $location, $type_image);
+    }
+
+    public function uploadNit(Request $request)
+    {
+        $data = explode(',', $request->base64);
+        $content = base64_decode($data[1]);
+
+        $location = 'nit';
+        $request->type_document_id=5;
+        $type_image=false;
+
+        return $this->loadFileData($request, $content, $location, $type_image);
+    }
+
+    public function uploadRut(Request $request)
+    {
+        $data = explode(',', $request->base64);
+        $content = base64_decode($data[1]);
+
+        $location = 'rut';
+        $request->type_document_id=6;
+        $type_image=false;
+
+        return $this->loadFileData($request, $content, $location, $type_image);
+    }
+
+    public function uploadChamberCommerce(Request $request)
+    {
+        $data = explode(',', $request->base64);
+        $content = base64_decode($data[1]);
+
+        $location = 'ccommerce';
+        $request->type_document_id=7;
+        $type_image=false;
+
+        return $this->loadFileData($request, $content, $location, $type_image);
+    }
+
+    /**
+     * @getFile this method gets files from s3
+     */
+
+    public function getAll()
+    {
+        $info=array();
+        $auth= Auth::User();
+
+        $stackeolder_document = Parameters::select(
+            'parameters.code AS document_id','parameters.description',
+            DB::raw('coalesce(stakeholder_document.name,\'NOIMAGEN.png\') AS name'),
+            DB::raw('coalesce(stakeholder_document.path,\'https://superfuds-file.s3.us-west-2.amazonaws.com/supplier/profile/default/\') AS path'))
+            ->leftJoin('stakeholder_document',function($q) use ($auth){
+                $q->on('stakeholder_document.document_id','=', 'parameters.code')
+                    ->where('stakeholder_document.stakeholder_id', $auth->stakeholder_id);
+            })
+            ->where('parameters.group','typedocument')
+            ->orderBy('code')->get();
+
+        foreach ($stackeolder_document as $document){
+            $data = explode('.', $document->name);
+            $show_document = $this->showDocument($data[0],$data[1]);
+            array_push($info,array(
+                'path'=>$document->path,
+                'name'=>$document->name,
+                'extension'=> $data[1],
+                'document_id'=> $document->document_id,
+                'show_document'=>$show_document,
+            ));
+        }
+        return response()->json($info, 200);
+    }
+
+    public function getAvatar()
+    {
+        $auth= Auth::User();
+        $stackeolder_document_validate= StakeholderDocument::where('stakeholder_id',$auth->stakeholder_id)
+            ->where('document_id',1);
+        if ($stackeolder_document_validate->exists()){
+            $stackeolder_document= $stackeolder_document_validate->first();
+            $data = explode('.', $stackeolder_document->name);
+            $show_document = $this->showDocument($data[0],$data[1]);
+            return response()->json([
+                'path'=>$stackeolder_document->path,
+                'name'=>$stackeolder_document->name,
+                'extension'=> $data[1],
+                'document_id'=> $stackeolder_document->document_id,
+                'show_document'=>$show_document,
+            ], 200);
+        }else{
+            return response()->json([
+                'mesagge' => 'No existe registro del archivo'
+            ], 500);
+        }
+    }
+
+    public function deleteDocument($document_id)
+    {
+        $auth= Auth::User();
+        $stackeolder_document_validate= StakeholderDocument::where('stakeholder_id',$auth->stakeholder_id)
+            ->where('document_id',(int)$document_id);
+        if ($stackeolder_document_validate->exists()){
+            $stackeolder_document= $stackeolder_document_validate->first();
+            Storage::disk('s3')->delete($stackeolder_document->path.$stackeolder_document->name);
+            Storage::disk('s3')->delete($stackeolder_document->path.'300X200'.$stackeolder_document->name);
+            $stackeolder_document_validate->delete();
+            return response()->json([
+                'mesagge' => 'Archivo eliminado'
+            ], 200);
+        }else{
+            return response()->json([
+                'mesagge' => 'Porfavor Cargue un archivo'
+            ], 500);
+        }
+
+    }
+
+    private function showDocument($name,$extention){
+        if ($name == 'NOIMAGEN'){
+            $respons = 'https://superfuds-file.s3.us-west-2.amazonaws.com/supplier/profile/default/NOIMAGEN.png';
+        }else{
+            if ($extention == 'png' || $extention == 'PNG' || $extention == 'jpg' || $extention == 'JPG' || $extention == 'jpeg' || $extention == 'JPEG') {
+                $respons = 'https://superfuds-file.s3.us-west-2.amazonaws.com/supplier/profile/default/300X200_IMAGENUPLOAD.png';
+            } elseif ($extention == 'pdf' || $extention == 'PNG'){
+                $respons = 'https://superfuds-file.s3.us-west-2.amazonaws.com/supplier/profile/default/300X200_PDFUPLOAD.png';
+            } elseif ($extention == 'doc' || $extention == 'DOC' || $extention == 'docx' || $extention == 'DOCX'){
+                $respons = 'https://superfuds-file.s3.us-west-2.amazonaws.com/supplier/profile/default/300X200_DOCUPLOAD.png';
+            }
+        }
+        return $respons;
+    }
+
+    private function saveImages($file, $location, $filename)
+    {
+        $manager = new ImageManager(array('driver' => 'imagick'));
+        $image = $manager->make($file);
+        Storage::disk("s3")->put('supplier/profile/'.$location.'/300X200_'.$filename,$image->resize(500, 500)->encode('png')->getEncoded(),'public');
+    }
+
+    private function saveFiles($file, $location, $filename, $request)
+    {
+
+        Storage::disk('s3')->put('supplier/profile/'.$location.'/'.$filename, $file);
+
+        $auth= Auth::User();
+        $stackeolder_document_validate=StakeholderDocument::where('stakeholder_id',$auth->stakeholder_id)
+            ->where('document_id',(int)$request->type_document_id);
+        $path= 'https://superfuds-file.s3.us-west-2.amazonaws.com/supplier/profile/'.$location.'/';
+        if ($stackeolder_document_validate->exists()){
+            $stackeolder_document= $stackeolder_document_validate->first();
+            Storage::disk('s3')->delete($stackeolder_document->path.$stackeolder_document->name);
+            Storage::disk('s3')->delete($stackeolder_document->path.'300X200'.$stackeolder_document->name);
+        }else{
+            $stackeolder_document= new StakeholderDocument();
+        }
+        $stackeolder_document->stakeholder_id=$auth->stakeholder_id;
+        $stackeolder_document->document_id=(int)$request->type_document_id;
+        $stackeolder_document->path= $path;
+        $stackeolder_document->name=$filename;
+        $stackeolder_document->status_document=1;
+        $stackeolder_document->save();
+    }
+
+    private function validateSaveDocument(Request $request, $extention)
+    {
+        if ((int)$request->type_document_id == 1 || (int)$request->type_document_id == 2) {
+            if ($extention == 'png' || $extention == 'PNG' || $extention == 'jpg' || $extention == 'JPG' || $extention == 'jpeg' || $extention == 'JPEG') {
+                $respons = 1;
+            } else {
+                $respons = 0;
+            }
+        } else {
+            if ($extention == 'doc' || $extention == 'DOC' || $extention == 'docx' || $extention == 'DOCX' || $extention == 'pdf' || $extention == 'PDF' || $extention == 'png' || $extention == 'PNG' || $extention == 'jpg' || $extention == 'JPG' || $extention == 'jpeg' || $extention == 'JPEG') {
+                $respons = 1;
+            } else {
+                $respons = 0;
+            }
+        }
+        return $respons;
+    }
+
+    /**
+     * @param Request $request
+     * @param $content
+     * @param $location
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function loadFileData(Request $request, $content, $location, $type_image)
+    {
+        $filenameWithExtension = $request->name;
+        $extention = pathinfo($filenameWithExtension, PATHINFO_EXTENSION);
+
+        $respons = $this->validateSaveDocument($request, $extention);
+        if ($respons == 1) {
+            $filename = sha1(time()) . ".{$extention}";
+            if ($type_image){
+                $this->saveImages($content, $location, $filename);
+            }
+            $this->saveFiles($content, $location, $filename, $request);
+            return response()->json([
+                'mesagge' => $location.' actualizado',
+                'code' => 200
+            ], 200);
+        } else {
+            return response()->json([
+                'mesagge' => 'El Archivo no tiene un formato valido',
+                'code' => 500
+            ],500);
+        }
     }
 }
