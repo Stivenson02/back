@@ -2,12 +2,11 @@
 
 namespace App\Models\Administration;
 
-use App\Models\Views\VDeparturesDetail;
 use Illuminate\Database\Eloquent\Model;
 
-class Products extends Model
+class NewProducts extends Model
 {
-    protected $table = "products";
+    protected $table = "new_products";
     protected $primaryKey = 'id';
     protected $fillable = [
         "id",
@@ -51,7 +50,7 @@ class Products extends Model
     ];
 
     public function images() {
-        return $this->hasMany(ProductsImage::class, "product_id");
+        return $this->hasMany(NewProductsImage::class, "product_id");
     }
 
     public function supplier(){
@@ -64,9 +63,5 @@ class Products extends Model
 
     public function purchaseDetail() {
         return $this->belongsTo(\App\Models\Invoicing\PurchasesDetail::class);
-    }
-
-    public function VDeparturesDetail() {
-        return $this->hasMany(VDeparturesDetail::class, "product_id");
     }
 }

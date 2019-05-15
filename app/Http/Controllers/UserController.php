@@ -18,26 +18,34 @@ class UserController extends Controller
     public function index()
     {
         $auth= Auth::User();
-        $stakeolder=$auth->stakeholder()->first();
+        $stakeolder=$auth->stakeholder;
+
         $data= array_search(3,json_decode($stakeolder->type_stakeholder_id)) ;
         if (!$data){
             return response()->json([
                 "message"=> "El usuario no es de tipo proveedor"
             ], 500);
         }
+        $validate_documents= $stakeolder->documents()->where('document_id', 1);
+        if($validate_documents->exists()){
+            $documents = $validate_documents->first();
+            $auth['path']=$documents->path.'300X200_'.$documents->name;
+        }else{
+            $auth['path']=null;
+        }
         $auth['business_name']=$stakeolder->business_name;
         $auth['business']=$stakeolder->business;
         $auth['phone_contact']=$stakeolder->phone_contact;
         $auth['send_city_id']=$stakeolder->send_city_id;
-        $auth['send_city_name']=$stakeolder->sendCity()->first()->description;
-        $auth['send_departament_id']=$stakeolder->sendCity()->first()->department_id;
-        $auth['send_departament_name']=$stakeolder->sendCity()->first()->department()->first()->description;
+        $auth['send_city_name']=$stakeolder->sendCity->description;
+        $auth['send_departament_id']=$stakeolder->sendCity->department_id;
+        $auth['send_departament_name']=$stakeolder->sendCity->department->description;
         $auth['address_send']=$stakeolder->address_send;
-        $auth['invoice_city_id']=$stakeolder->invoiceCity()->first()->id;
+        $auth['invoice_city_id']=$stakeolder->invoiceCity->id;
         $auth['address_invoice']=$stakeolder->address_invoice;
-        $auth['invoise_city_name']=$stakeolder->invoiceCity()->first()->description;
-        $auth['invoise_departament_id']=$stakeolder->invoiceCity()->first()->department_id;
-        $auth['invoise_departament_name']=$stakeolder->invoiceCity()->first()->department()->first()->description;
+        $auth['invoise_city_name']=$stakeolder->invoiceCity->description;
+        $auth['invoise_departament_id']=$stakeolder->invoiceCity->department_id;
+        $auth['invoise_departament_name']=$stakeolder->invoiceCity->department->description;
         return $auth;
     }
 
