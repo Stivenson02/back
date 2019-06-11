@@ -14,9 +14,9 @@ class Administrator extends Authenticatable
     use HasApiTokens,
         Notifiable;
 
-    protected $guard = 'admins';
+    protected $guard = 'users';
 
-    protected $table = "administrators";
+    protected $table = "users";
     protected $primaryKey = "id";
 
     /**
@@ -44,6 +44,4 @@ class Administrator extends Authenticatable
     public function city() {
         return $this->hasOne(Cities::class,'id','city_id');
     }
-
-
 }
